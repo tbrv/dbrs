@@ -1,6 +1,12 @@
 use std::io::{self, BufRead, Write};
 use std::process;
 
+#[derive(Debug)]
+enum Statement {
+    Insert,
+    Select,
+}
+
 fn main() {
     loop {
         print_prompt();
@@ -19,12 +25,15 @@ fn handle_input(input: String) {
     if input.starts_with(".") {
         do_meta_command(input.as_str())
     } else {
-        todo!("Handle statement")
+        match parse_statement(input.as_str()) {
+            Ok(statement) => println!("Using statement {:?}", statement),
+            Err(error) => eprintln!("Error: {}", error),
+        }
     }
 }
 
 fn do_meta_command(command: &str) {
-    match command{
+    match command {
         ".exit" => {
             println!("Exiting...");
             process::exit(0)
@@ -46,4 +55,12 @@ fn read_line() -> io::Result<String> {
     let mut input = String::new();
     handle.read_line(&mut input)?;
     Ok(input.trim().to_string())
+}
+
+fn parse_statement(s: &str) -> Result<Statement, &'static str> {
+    match s.trim().to_lowercase().as_str() {
+        "insert" => Ok(Statement::Insert),
+        "select" => Ok(Statement::Select),
+        _ => Err("Unknown statement")
+    }
 }
