@@ -16,13 +16,21 @@ fn main() {
 }
 
 fn handle_input(input: String) {
-    match input.as_str() {
-        "exit" => {
+    if input.starts_with(".") {
+        do_meta_command(input.as_str())
+    } else {
+        todo!("Handle statement")
+    }
+}
+
+fn do_meta_command(command: &str) {
+    match command{
+        ".exit" => {
             println!("Exiting...");
             process::exit(0)
         }
         _ => {
-            println!("Unknown command: {}", input)
+            println!("Unknown command: {}", command)
         }
     }
 }
