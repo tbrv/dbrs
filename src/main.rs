@@ -1,5 +1,9 @@
+pub mod row;
+
 use std::io::{self, BufRead, Write};
 use std::process;
+use crate::row::Row;
+
 
 #[derive(Debug)]
 enum Statement {
@@ -8,6 +12,7 @@ enum Statement {
 }
 
 fn main() {
+
     loop {
         print_prompt();
 
