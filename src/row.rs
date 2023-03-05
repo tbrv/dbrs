@@ -46,25 +46,35 @@ impl Row {
         buf_array.to_vec()
     }
 
-     pub fn deserialize(bytes: &Vec<u8>) -> Result<Self, String> {
-         if bytes.len() != ROW_SIZE {
-             return Err(format!("Expected bytes array of size {} but got {}", ROW_SIZE, bytes.len()));
-         }
+    pub fn deserialize(bytes: &Vec<u8>) -> Result<Self, String> {
+        if bytes.len() != ROW_SIZE {
+            return Err(format!("Expected bytes array of size {} but got {}", ROW_SIZE, bytes.len()));
+        }
 
-         let mut id_bytes = [0; ID_SIZE];
-         id_bytes.copy_from_slice(&bytes[0..ID_SIZE]);
-         let id = u32::from_le_bytes(id_bytes);
+        let mut id_bytes = [0; ID_SIZE];
+        id_bytes.copy_from_slice(&bytes[0..ID_SIZE]);
+        let id = u32::from_le_bytes(id_bytes);
 
-         let mut username_bytes = [0; USERNAME_SIZE];
-         username_bytes.copy_from_slice(&bytes[USERNAME_OFFSET..USERNAME_OFFSET + USERNAME_SIZE]);
-         let username = String::from_utf8(username_bytes.to_vec()).map_err(|e| e.to_string())?;
+        let username_bytes = &bytes[USERNAME_OFFSET..USERNAME_OFFSET + USERNAME_SIZE];
+        let username_end = get_nul_position(&username_bytes);
 
-         let mut email_bytes = [0; EMAIL_SIZE];
-         email_bytes.copy_from_slice(&bytes[EMAIL_OFFSET..EMAIL_OFFSET + EMAIL_SIZE]);
-         let email = String::from_utf8(email_bytes.to_vec()).map_err(|e| e.to_string())?;
+        let username = std::str::from_utf8(&username_bytes[..username_end])
+            .map_err(|e| e.to_string())?.to_string();
 
-         Ok(Row { id, username, email })
-     }
+        let email_bytes = &bytes[EMAIL_OFFSET..EMAIL_OFFSET + EMAIL_SIZE];
+        let email_end = get_nul_position(&email_bytes);
+
+        let email = std::str::from_utf8(&email_bytes[..email_end])
+            .map_err(|e| e.to_string())?.to_string();
+
+        Ok(Row { id, username, email })
+    }
+}
+
+fn get_nul_position(str_bytes: &[u8]) -> usize {
+    str_bytes.iter()
+        .position(|&c| c == b'\0')
+        .unwrap_or(str_bytes.len() - 1)
 }
 
 #[test]
