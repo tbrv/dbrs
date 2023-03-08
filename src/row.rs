@@ -1,4 +1,3 @@
-use std::io::Write;
 use std::cmp;
 
 #[derive(Debug)]
@@ -15,7 +14,6 @@ const USERNAME_SIZE: usize = 32;
 const EMAIL_OFFSET: usize = USERNAME_OFFSET + USERNAME_SIZE;
 const EMAIL_SIZE: usize = 255;
 const ROW_SIZE: usize = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE;
-
 
 impl Row {
     pub fn from_string(s: &str) -> Result<Self, String> {
@@ -108,3 +106,32 @@ fn serialize_and_deserialize() -> Result<(), String> {
 
     Ok(())
 }
+
+
+///////////////////////////////////
+
+const PAGE_SIZE: usize = 4096;
+const TABLE_MAX_PAGES: usize = 100;
+const ROWS_PER_PAGE: usize = PAGE_SIZE / ROW_SIZE;
+const TABLE_MAX_ROWS: usize = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+type Page = [u8; PAGE_SIZE];
+
+#[derive(Debug)]
+pub struct Table {
+    pages: [Page; TABLE_MAX_PAGES],
+}
+
+impl Table {
+    pub fn new() -> Self {
+        Table {
+            pages: [[0; PAGE_SIZE]; TABLE_MAX_PAGES]
+        }
+    }
+
+    pub fn num_pages(&self) -> usize {
+        self.pages.len()
+    }
+}
+
+

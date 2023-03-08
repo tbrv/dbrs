@@ -1,9 +1,8 @@
 pub mod row;
 
+use crate::row::{Table, Row};
 use std::io::{self, BufRead, Write};
 use std::process;
-use crate::row::Row;
-
 
 #[derive(Debug)]
 enum Statement {
@@ -12,6 +11,8 @@ enum Statement {
 }
 
 fn main() {
+    let table = Table::new();
+    println!("{:?}", table.num_pages());
 
     loop {
         print_prompt();
@@ -66,6 +67,6 @@ fn parse_statement(s: &str) -> Result<Statement, &'static str> {
     match s.trim().to_lowercase().as_str() {
         "insert" => Ok(Statement::Insert),
         "select" => Ok(Statement::Select),
-        _ => Err("Unknown statement")
+        _ => Err("Unknown statement"),
     }
 }
