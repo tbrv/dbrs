@@ -44,7 +44,7 @@ impl Row {
         buf_array.to_vec()
     }
 
-    pub fn deserialize(bytes: &Vec<u8>) -> Result<Self, String> {
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, String> {
         if bytes.len() != ROW_SIZE {
             return Err(format!("Expected bytes array of size {} but got {}", ROW_SIZE, bytes.len()));
         }
@@ -119,19 +119,98 @@ type Page = [u8; PAGE_SIZE];
 
 #[derive(Debug)]
 pub struct Table {
-    pages: [Page; TABLE_MAX_PAGES],
+    pages: Vec<Page>,
+    num_rows: usize,
 }
 
 impl Table {
     pub fn new() -> Self {
         Table {
-            pages: [[0; PAGE_SIZE]; TABLE_MAX_PAGES]
+            pages: Vec::new(),
+            num_rows: 0,
         }
     }
 
     pub fn num_pages(&self) -> usize {
         self.pages.len()
     }
+
+    pub fn num_rows(&self) -> usize {
+        self.num_rows
+    }
+
+    pub fn add_page(&mut self) {
+        self.pages.push([0; PAGE_SIZE]);
+    }
+
+    pub fn insert_row(&mut self, row: &Row) -> Result<(), String> {
+        let (page_num, byte_offset_in_page) = Table::row_position(self.num_rows);
+
+        if page_num > TABLE_MAX_PAGES {
+            return Err(String::from("Reached max number of pages"));
+        } else if page_num >= self.pages.len() {
+            self.add_page();
+        }
+
+        let page = self.pages.get_mut(page_num).unwrap();
+
+        let row_bytes = row.serialize();
+        for (i, b) in row_bytes.iter().enumerate() {
+            page[byte_offset_in_page + i] = *b;
+        }
+        self.num_rows += 1;
+
+        Ok(())
+    }
+
+    fn row_position(row_num: usize) -> (usize, usize) {
+        let page_num = row_num / ROWS_PER_PAGE;
+        let row_in_page = row_num % ROWS_PER_PAGE;
+        let byte_offset_in_page = row_in_page * ROW_SIZE;
+        (page_num, byte_offset_in_page)
+    }
+
+    pub fn select_row(&self, position: usize) -> Option<Row> {
+        let (page_num, byte_offset_in_page) = Table::row_position(position);
+        if page_num >= self.pages.len() {
+            return None;
+        }
+        let page = self.pages.get(page_num).unwrap();
+        let bytes = &page[byte_offset_in_page..byte_offset_in_page + ROW_SIZE];
+        let row = Row::deserialize(bytes);
+
+        Some(row.unwrap())
+    }
 }
 
+#[test]
+fn row_position() -> Result<(), String> {
+    assert_eq!(Table::row_position(0), (0, 0));
+
+    assert_eq!(Table::row_position((TABLE_MAX_PAGES + 1) * ROWS_PER_PAGE), (TABLE_MAX_PAGES + 1, 0));
+
+    Ok(())
+}
+
+#[test]
+fn insert_row() -> Result<(), String> {
+    let mut table = Table::new();
+    let row = Row {
+        id: 100,
+        username: String::from("apoq"),
+        email: String::from("qopa@apoq.com"),
+    };
+
+    table.insert_row(&row).expect("no error");
+
+    let page = table.pages.get(0);
+    assert!(page.is_some());
+    assert_eq!(table.num_rows(), 1);
+
+    let row_from_table = table.select_row(0).unwrap();
+    dbg!(&row_from_table);
+    assert_eq!(row, row_from_table);
+
+    Ok(())
+}
 

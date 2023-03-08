@@ -11,7 +11,8 @@ enum Statement {
 }
 
 fn main() {
-    let table = Table::new();
+    let mut table = Table::new();
+    table.add_page();
     println!("{:?}", table.num_pages());
 
     loop {
