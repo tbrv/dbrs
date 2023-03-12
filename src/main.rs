@@ -6,8 +6,8 @@ use std::process;
 
 #[derive(Debug)]
 enum Statement {
-    Insert,
-    Select,
+    Insert(Row),
+    Select(usize),
 }
 
 fn main() {
@@ -21,8 +21,7 @@ fn main() {
         match read_line() {
             Ok(input) => handle_input(input),
             Err(error) => {
-                eprintln!("Error reading input: {:?}", error);
-                process::exit(1);
+                eprintln!("Error reading input: {:?}. Please try again.", error);
             }
         }
     }
@@ -65,9 +64,19 @@ fn read_line() -> io::Result<String> {
 }
 
 fn parse_statement(s: &str) -> Result<Statement, &'static str> {
-    match s.trim().to_lowercase().as_str() {
-        "insert" => Ok(Statement::Insert),
-        "select" => Ok(Statement::Select),
+    match s.trim().to_lowercase().split_ascii_whitespace().next().unwrap_or("") {
+        "insert" => {
+            match Row::from_string(s[6..].trim()) {
+                Ok(row) => Ok(Statement::Insert(row)),
+                Err(_) => Err("Illegal insert statement")
+            }
+        }
+        "select" => {
+            match s[6..].trim().parse::<usize>() {
+                Ok(row_num) => Ok(Statement::Select(row_num)),
+                Err(_) => Err("Illegal select statement")
+            }
+        }
         _ => Err("Unknown statement"),
     }
 }

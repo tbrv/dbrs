@@ -76,7 +76,7 @@ impl Row {
 fn get_nul_position(str_bytes: &[u8]) -> usize {
     str_bytes.iter()
         .position(|&c| c == b'\0')
-        .unwrap_or(str_bytes.len() - 1)
+        .unwrap_or(str_bytes.len())
 }
 
 #[test]
@@ -216,7 +216,7 @@ fn insert_row_and_select() -> Result<(), String> {
     let mut table = Table::new();
     let row = Row {
         id: 100,
-        username: String::from("apoq"),
+        username: String::from("Yz85rmUs0CzYJBDDA6hY38I07uOq6u2R"),
         email: String::from("qopa@apoq.com"),
     };
 
@@ -227,7 +227,6 @@ fn insert_row_and_select() -> Result<(), String> {
     assert_eq!(table.num_rows(), 1);
 
     let row_from_table = table.select_row(0).unwrap();
-    dbg!(&row_from_table);
     assert_eq!(row, row_from_table);
 
     Ok(())
