@@ -1,5 +1,9 @@
 use std::cmp;
 
+use rand::distributions::Alphanumeric;
+use rand::Rng;
+use rand::rngs::ThreadRng;
+
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub struct Row {
@@ -92,6 +96,19 @@ fn test_row_from_string_wrong_number_of_components() -> Result<(), String> {
 }
 
 #[test]
+fn test_row_from_string_malformed_string() -> Result<(), String> {
+    let row_strings = [
+        "one john foo@bar",
+        "999999999999999999 foo foo@bar",
+        "1", ""
+    ];
+    for row_str in row_strings.iter() {
+        Row::from_string(row_str).unwrap_err();
+    }
+    Ok(())
+}
+
+#[test]
 fn serialize_and_deserialize() -> Result<(), String> {
     let original_row = Row {
         id: 10,
@@ -163,6 +180,7 @@ impl Table {
         Ok(())
     }
 
+    /// Returns the page and the byte-offset in page for a given row number
     fn row_position(row_num: usize) -> (usize, usize) {
         let page_num = row_num / ROWS_PER_PAGE;
         let row_in_page = row_num % ROWS_PER_PAGE;
@@ -186,14 +204,15 @@ impl Table {
 #[test]
 fn row_position() -> Result<(), String> {
     assert_eq!(Table::row_position(0), (0, 0));
-
+    assert_eq!(Table::row_position(ROWS_PER_PAGE), (1, 0));
+    assert_eq!(Table::row_position(ROWS_PER_PAGE + 10), (1, 10 * ROW_SIZE));
     assert_eq!(Table::row_position((TABLE_MAX_PAGES + 1) * ROWS_PER_PAGE), (TABLE_MAX_PAGES + 1, 0));
 
     Ok(())
 }
 
 #[test]
-fn insert_row() -> Result<(), String> {
+fn insert_row_and_select() -> Result<(), String> {
     let mut table = Table::new();
     let row = Row {
         id: 100,
@@ -214,3 +233,58 @@ fn insert_row() -> Result<(), String> {
     Ok(())
 }
 
+#[test]
+fn insert_and_select_multiple_rows() -> Result<(), String> {
+    let rows = [
+        Row::from_string("10 Andrew andre.jung@gmail.com")?,
+        Row::from_string("30 Birte birte.hochlander@web.de")?,
+        Row::from_string("20 Yanik yk@nomail.com")?,
+    ];
+
+    let mut table = Table::new();
+    for row in rows.iter() {
+        table.insert_row(row)?;
+    }
+
+    for i in 0..table.num_rows() {
+        let table_row = table.select_row(i).unwrap();
+        assert_eq!(rows[i], table_row);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn insert_and_select_lots_of_rows() -> Result<(), String> {
+    let mut rng = rand::thread_rng();
+    let num_rows = 1000;
+    let mut rows: Vec<Row> = Vec::new();
+    let mut table = Table::new();
+
+    for _i in 0..num_rows {
+        let random_id = rng.gen();
+        let random_name = gen_random_string(&mut rng, USERNAME_SIZE);
+        let random_email = gen_random_string(&mut rng, EMAIL_SIZE);
+
+        let row = Row { id: random_id, username: random_name, email: random_email };
+
+        table.insert_row(&row)?;
+        rows.push(row);
+    }
+
+    for i in 0..table.num_rows() {
+        let table_row = table.select_row(i).unwrap();
+        assert_eq!(rows[i], table_row);
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+fn gen_random_string(rng: &mut ThreadRng, max_len: usize) -> String {
+    let random_len = rng.gen_range(1..=USERNAME_SIZE);
+    rng.sample_iter(&Alphanumeric)
+        .take(random_len)
+        .map(char::from)
+        .collect::<String>()
+}
