@@ -4,22 +4,23 @@ use crate::row::{Table, Row};
 use std::io::{self, BufRead, Write};
 use std::process;
 
+const INSERT_CMD: &str = "insert";
+const SELECT_CMD: &str = "select";
+
 #[derive(Debug)]
 enum Statement {
     Insert(Row),
-    Select(usize),
+    Select(String),
 }
 
 fn main() {
     let mut table = Table::new();
-    table.add_page();
-    println!("{:?}", table.num_pages());
 
     loop {
         print_prompt();
 
         match read_line() {
-            Ok(input) => handle_input(input),
+            Ok(input) => handle_input(input, &mut table),
             Err(error) => {
                 eprintln!("Error reading input: {:?}. Please try again.", error);
             }
@@ -27,12 +28,12 @@ fn main() {
     }
 }
 
-fn handle_input(input: String) {
+fn handle_input(input: String, table: &mut Table) {
     if input.starts_with(".") {
         do_meta_command(input.as_str())
     } else {
         match parse_statement(input.as_str()) {
-            Ok(statement) => println!("Using statement {:?}", statement),
+            Ok(statement) => do_process_statement(statement, table),
             Err(error) => eprintln!("Error: {}", error),
         }
     }
@@ -50,6 +51,43 @@ fn do_meta_command(command: &str) {
     }
 }
 
+fn do_process_statement(statement: Statement, table: &mut Table) {
+    match statement {
+        Statement::Insert(row) => {
+            match table.insert_row(&row) {
+                Ok(_) => println!("Row inserted successfully"),
+                Err(cause) => println!("Error inserting row: {}", cause)
+            }
+        }
+        Statement::Select(args) => {
+            if args.trim().is_empty() {
+                for i in 0..table.num_rows() {
+                    let row = table.select_row(i).unwrap();
+                    println!("{:?}", row);
+                }
+            } else {
+                match args.trim().parse::<usize>() {
+                    Ok(row_idx) => print_table_row(&table, row_idx),
+                    Err(err) => eprintln!("Error printing row for input '{}': {}", args, err)
+                }
+            }
+        }
+    }
+}
+
+fn print_table_row(table: &Table, row_idx: usize) {
+    let num_rows = table.num_rows();
+
+    if num_rows == 0 {
+        println!("Table is empty, nothing to print for index {}", row_idx);
+    } else if row_idx >= table.num_rows() {
+        println!("Row index out of bounds: {} is not in [0, {}]", row_idx, num_rows)
+    } else {
+        println!("{:?}", table.select_row(row_idx).unwrap())
+    }
+}
+
+
 fn print_prompt() {
     print!("db> ");
     let _ = io::stdout().flush();
@@ -63,20 +101,18 @@ fn read_line() -> io::Result<String> {
     Ok(input.trim().to_string())
 }
 
-fn parse_statement(s: &str) -> Result<Statement, &'static str> {
+fn parse_statement(s: &str) -> Result<Statement, String> {
     match s.trim().to_lowercase().split_ascii_whitespace().next().unwrap_or("") {
-        "insert" => {
-            match Row::from_string(s[6..].trim()) {
+        INSERT_CMD => {
+            match Row::from_string(s[INSERT_CMD.len()..].trim()) {
                 Ok(row) => Ok(Statement::Insert(row)),
-                Err(_) => Err("Illegal insert statement")
+                Err(e) => Err(format!("Illegal insert statement: {}", e))
             }
         }
-        "select" => {
-            match s[6..].trim().parse::<usize>() {
-                Ok(row_num) => Ok(Statement::Select(row_num)),
-                Err(_) => Err("Illegal select statement")
-            }
+        SELECT_CMD => {
+            let args = String::from(s[SELECT_CMD.len()..].trim());
+            Ok(Statement::Select(args))
         }
-        _ => Err("Unknown statement"),
+        _ => Err("Unknown statement".to_string()),
     }
 }

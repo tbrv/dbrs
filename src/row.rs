@@ -156,7 +156,7 @@ impl Table {
         self.num_rows
     }
 
-    pub fn add_page(&mut self) {
+    fn add_page(&mut self) {
         self.pages.push([0; PAGE_SIZE]);
     }
 
