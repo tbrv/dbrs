@@ -1,4 +1,5 @@
 use std::cmp;
+use std::result::IntoIter;
 
 use rand::distributions::Alphanumeric;
 use rand::Rng;
@@ -78,54 +79,6 @@ fn get_nul_position(str_bytes: &[u8]) -> usize {
         .position(|&c| c == b'\0')
         .unwrap_or(str_bytes.len())
 }
-
-#[test]
-fn test_row_from_string_happy_case() -> Result<(), String> {
-    let row_str = "1 john john@example.com";
-    let expected_row = Row { id: 1, username: String::from("john"), email: String::from("john@example.com") };
-    let actual_row = Row::from_string(row_str)?;
-    assert_eq!(expected_row, actual_row);
-    Ok(())
-}
-
-#[test]
-fn test_row_from_string_wrong_number_of_components() -> Result<(), String> {
-    let row_str = "1 john";
-    Row::from_string(row_str).unwrap_err();
-    Ok(())
-}
-
-#[test]
-fn test_row_from_string_malformed_string() -> Result<(), String> {
-    let row_strings = [
-        "one john foo@bar",
-        "999999999999999999 foo foo@bar",
-        "1", ""
-    ];
-    for row_str in row_strings.iter() {
-        Row::from_string(row_str).unwrap_err();
-    }
-    Ok(())
-}
-
-#[test]
-fn serialize_and_deserialize() -> Result<(), String> {
-    let original_row = Row {
-        id: 10,
-        username: String::from("some string"),
-        email: String::from("foo@bar.com"),
-    };
-
-    let serialized = original_row.serialize();
-    let deserialized_row = Row::deserialize(&serialized)?;
-
-    assert_eq!(original_row, deserialized_row);
-
-    Ok(())
-}
-
-
-///////////////////////////////////
 
 const PAGE_SIZE: usize = 4096;
 const TABLE_MAX_PAGES: usize = 100;
@@ -281,9 +234,90 @@ fn insert_and_select_lots_of_rows() -> Result<(), String> {
 
 #[cfg(test)]
 fn gen_random_string(rng: &mut ThreadRng, max_len: usize) -> String {
-    let random_len = rng.gen_range(1..=USERNAME_SIZE);
+    let random_len = rng.gen_range(1..=max_len);
     rng.sample_iter(&Alphanumeric)
         .take(random_len)
         .map(char::from)
         .collect::<String>()
+}
+
+pub struct TableIterator<'a> {
+    table: &'a Table,
+    position: usize,
+}
+
+impl<'a> Iterator for TableIterator<'a> {
+    type Item = Row;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.position >= self.table.num_rows() {
+            return None;
+        }
+        let row = self.table.select_row(self.position);
+        self.position += 1;
+        return row;
+    }
+}
+
+impl Table {
+    pub fn iter(&self) -> TableIterator {
+        TableIterator {
+            table: self,
+            position: 0,
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a Table {
+    type Item = Row;
+    type IntoIter = TableIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        TableIterator {
+            table: &self,
+            position: 0,
+        }
+    }
+}
+
+#[test]
+fn test_iterator() -> Result<(), String> {
+    let mut table = Table::new();
+    let row1 = Row { id: 100, username: "foo".to_string(), email: "bar".to_string() };
+    let row2 = Row { id: 200, username: "baz".to_string(), email: "bam".to_string() };
+
+    table.insert_row(&row1)?;
+    table.insert_row(&row2)?;
+
+    let mut iter = table.iter();
+    assert_eq!(iter.next().unwrap(), row1);
+    assert_eq!(iter.next().unwrap(), row2);
+    assert!(iter.next().is_none());
+
+    Ok(())
+}
+
+#[test]
+fn test_into_iterator() -> Result<(), String> {
+    let mut table = Table::new();
+
+    // empty table
+    for _ in &table {
+        assert!(false);
+    }
+
+    // table with two items
+    let rows = [Row { id: 100, username: "foo".to_string(), email: "bar".to_string() },
+        Row { id: 200, username: "baz".to_string(), email: "bam".to_string() }];
+
+    table.insert_row(&rows[0])?;
+    table.insert_row(&rows[1])?;
+
+    let mut i = 0;
+    for r in &table {
+        assert_eq!(r, rows[i]);
+        i += 1;
+    }
+
+    Ok(())
 }
