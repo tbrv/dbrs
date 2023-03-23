@@ -1,8 +1,11 @@
-pub mod row;
-
-use crate::row::{Table, Row};
 use std::io::{self, BufRead, Write};
 use std::process;
+
+use crate::row::Row;
+use crate::table::Table;
+
+pub mod row;
+pub mod table;
 
 const INSERT_CMD: &str = "insert";
 const SELECT_CMD: &str = "select";
