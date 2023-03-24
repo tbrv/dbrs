@@ -9,4 +9,6 @@ edition = "2021"
 rand = "0.8.4"
 
 #[dev-dependencies]
-#rand = "0.8.4"
+#[dev-dependencies]
+assert_cmd = "2.0.10"
+predicates = "3.0.1"
